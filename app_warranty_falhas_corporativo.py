@@ -5,7 +5,10 @@ Funcionalidades:
 - Upload de arquivo Excel (.xlsx)
 - Classificação automática de:
     * Tipo de Defeito (padrão corporativo)
+- Regra especial:
+    * Se Labor/Peças = "Mão de obra" -> Tipo de Defeito = "N/A"
 - 1 tipo de defeito por registro (regra de prioridade)
+- Processa 100% das linhas
 - Download do Excel processado
 
 Compatível com Streamlit Cloud
@@ -77,7 +80,7 @@ def classificar_tipo_defeito(texto):
     if pd.isna(texto):
         return "Não identificado"
 
-    texto = texto.lower()
+    texto = str(texto).lower()
 
     for tipo, palavras in TIPO_DEFEITO_RULES:
         for p in palavras:
@@ -90,21 +93,28 @@ def classificar_tipo_defeito(texto):
 def processar_dataframe(df):
     df = df.copy()
 
-    # Remove coluna se já existir
-    coluna_padrao = ["Tipo de Defeito"]
-    df = df.drop(columns=[c for c in coluna_padrao if c in df.columns])
+    # Remove coluna se já existir (segurança)
+    if "Tipo de Defeito" in df.columns:
+        df = df.drop(columns=["Tipo de Defeito"])
 
-    df["Tipo de Defeito"] = df["Detalhes Adicionais de Falha"].apply(
-        classificar_tipo_defeito
-    )
+    # Função linha a linha com regra de negócio
+    def aplicar_classificacao(row):
+        # REGRA PRIORITÁRIA
+        if "Labor/Peças" in row and str(row["Labor/Peças"]).strip().lower() == "mão de obra":
+            return "N/A"
+
+        return classificar_tipo_defeito(row["Detalhes Adicionais de Falha"])
+
+    # Aplica em TODAS as linhas
+    df["Tipo de Defeito"] = df.apply(aplicar_classificacao, axis=1)
 
     return df
 
 
 def gerar_excel_download(df):
     buffer = BytesIO()
-    with pd.ExcelWriter(buffer) as writer:
-        df.to_excel(writer, index=False)
+    with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+        df.to_excel(writer, index=False, sheet_name="Classificado")
     buffer.seek(0)
     return buffer
 
@@ -114,8 +124,8 @@ def gerar_excel_download(df):
 
 st.title("Classificação Corporativa de Defeitos – Warranty / Qualidade")
 st.markdown(
-    "Classificação automática de **Tipo de Defeito** "
-    "a partir de texto livre (padrão corporativo)."
+    "Classificação automática de **Tipo de Defeito** a partir de texto livre, "
+    "com regra especial para **Mão de Obra**."
 )
 
 uploaded_file = st.file_uploader(
@@ -130,20 +140,26 @@ if uploaded_file:
         st.error(f"Erro ao ler o arquivo Excel: {e}")
         st.stop()
 
-    if "Detalhes Adicionais de Falha" not in df_input.columns:
-        st.error(
-            "A coluna obrigatória **'Detalhes Adicionais de Falha'** não foi encontrada."
-        )
-        st.stop()
+    # Validações obrigatórias
+    colunas_obrigatorias = ["Detalhes Adicionais de Falha", "Labor/Peças"]
+    for col in colunas_obrigatorias:
+        if col not in df_input.columns:
+            st.error(f"A coluna obrigatória **'{col}'** não foi encontrada.")
+            st.stop()
 
-    st.success("Arquivo carregado com sucesso.")
+    st.success(f"Arquivo carregado com sucesso ({len(df_input):,} linhas).")
 
     st.subheader("Pré-visualização – Dados de entrada")
     st.dataframe(df_input.head(20), use_container_width=True)
 
+    # Processamento completo
     df_output = processar_dataframe(df_input)
 
     st.subheader("Resultado – Classificação por Tipo de Defeito")
+    st.caption(
+        "⚠️ A visualização mostra apenas as primeiras linhas. "
+        "O arquivo exportado contém 100% dos registros."
+    )
     st.dataframe(df_output.head(20), use_container_width=True)
 
     excel_buffer = gerar_excel_download(df_output)
