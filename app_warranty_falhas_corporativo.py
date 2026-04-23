@@ -6,6 +6,7 @@ Funcionalidades:
 - Classificação automática de:
     * Tipo de Defeito (padrão corporativo)
 - 1 tipo de defeito por registro (regra de prioridade)
+- Processa 100% das linhas do arquivo
 - Download do Excel processado
 
 Compatível com Streamlit Cloud
@@ -90,10 +91,11 @@ def classificar_tipo_defeito(texto):
 def processar_dataframe(df):
     df = df.copy()
 
-    # Remove coluna se já existir
-    coluna_padrao = ["Tipo de Defeito"]
-    df = df.drop(columns=[c for c in coluna_padrao if c in df.columns])
+    # Remove a coluna caso já exista (segurança para reprocessamento)
+    if "Tipo de Defeito" in df.columns:
+        df = df.drop(columns=["Tipo de Defeito"])
 
+    # APLICA EM TODAS AS LINHAS (SEM LIMITE)
     df["Tipo de Defeito"] = df["Detalhes Adicionais de Falha"].apply(
         classificar_tipo_defeito
     )
@@ -103,8 +105,8 @@ def processar_dataframe(df):
 
 def gerar_excel_download(df):
     buffer = BytesIO()
-    with pd.ExcelWriter(buffer) as writer:
-        df.to_excel(writer, index=False)
+    with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+        df.to_excel(writer, index=False, sheet_name="Classificado")
     buffer.seek(0)
     return buffer
 
@@ -115,7 +117,7 @@ def gerar_excel_download(df):
 st.title("Classificação Corporativa de Defeitos – Warranty / Qualidade")
 st.markdown(
     "Classificação automática de **Tipo de Defeito** "
-    "a partir de texto livre (padrão corporativo)."
+    "a partir de texto livre, seguindo **padrão corporativo**."
 )
 
 uploaded_file = st.file_uploader(
@@ -136,14 +138,20 @@ if uploaded_file:
         )
         st.stop()
 
-    st.success("Arquivo carregado com sucesso.")
+    st.success(f"Arquivo carregado com sucesso ({len(df_input):,} linhas).")
 
-    st.subheader("Pré-visualização – Dados de entrada")
+    # Pré-visualização (somente visual)
+    st.subheader("Pré-visualização – Dados de entrada (primeiras linhas)")
     st.dataframe(df_input.head(20), use_container_width=True)
 
+    # Processamento COMPLETO
     df_output = processar_dataframe(df_input)
 
-    st.subheader("Resultado – Classificação por Tipo de Defeito")
+    st.subheader("Resultado – Classificação por Tipo de Defeito (pré-visualização)")
+    st.caption(
+        f"O arquivo completo com {len(df_output):,} registros será exportado. "
+        "A visualização abaixo mostra apenas as primeiras linhas."
+    )
     st.dataframe(df_output.head(20), use_container_width=True)
 
     excel_buffer = gerar_excel_download(df_output)
@@ -154,3 +162,4 @@ if uploaded_file:
         file_name="output_tipo_defeito_warranty.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+``
