@@ -1,13 +1,11 @@
-
 """
-App Streamlit - Classificação Corporativa de Falhas (Warranty / Qualidade)
+App Streamlit - Classificação Corporativa de Defeitos (Warranty / Qualidade)
 
 Funcionalidades:
 - Upload de arquivo Excel (.xlsx)
 - Classificação automática de:
-    * Modo de Falha (padrão corporativo)
-    * Sistema (nível macro)
-- 1 modo de falha por registro (regra de prioridade)
+    * Tipo de Defeito (padrão corporativo)
+- 1 tipo de defeito por registro (regra de prioridade)
 - Download do Excel processado
 
 Compatível com Streamlit Cloud
@@ -22,21 +20,21 @@ from io import BytesIO
 # =============================
 
 st.set_page_config(
-    page_title="Warranty – Classificação Corporativa de Falhas",
+    page_title="Warranty – Classificação Corporativa de Defeitos",
     layout="wide"
 )
 
 # =============================
-# Padrão corporativo – Modo de Falha
+# Padrão corporativo – Tipo de Defeito
 # Ordem = PRIORIDADE
 # =============================
 
-MODO_FALHA_RULES = [
-    ("Falha Elétrica", [
+TIPO_DEFEITO_RULES = [
+    ("Defeito Elétrico", [
         "curto", "elétrico", "sensor", "não liga", "falha elétrica"
     ]),
 
-    ("Falha de Pintura", [
+    ("Defeito de Pintura", [
         "descasc", "descascando", "bolha", "bolhas",
         "problema na pintura", "falha na pintura", "pintura"
     ]),
@@ -49,7 +47,7 @@ MODO_FALHA_RULES = [
         "solda", "trinca na solda", "solda fraca"
     ]),
 
-    ("Falha de Montagem", [
+    ("Defeito de Montagem", [
         "montagem", "montado incorretamente",
         "falta de parafuso", "parafuso solto", "torque"
     ]),
@@ -72,52 +70,19 @@ MODO_FALHA_RULES = [
 ]
 
 # =============================
-# Sistema – nível corporativo
-# =============================
-
-SISTEMA_RULES = {
-    "Elétrico": [
-        "sensor", "motor elétrico", "elétrico", "painel", "chicote"
-    ],
-    "Hidráulico": [
-        "bomba", "válvula", "mangueira", "óleo", "hidrául"
-    ],
-    "Estrutura": [
-        "barra", "barras", "chassi", "estrutura", "suporte"
-    ],
-    "Mecânico": [
-        "rolamento", "eixo", "engrenagem", "transmissão"
-    ]
-}
-
-# =============================
 # Funções de classificação
 # =============================
 
-def classificar_modo_falha(texto):
+def classificar_tipo_defeito(texto):
     if pd.isna(texto):
         return "Não identificado"
 
     texto = texto.lower()
 
-    for modo, palavras in MODO_FALHA_RULES:
+    for tipo, palavras in TIPO_DEFEITO_RULES:
         for p in palavras:
             if p in texto:
-                return modo
-
-    return "Não identificado"
-
-
-def classificar_sistema(texto):
-    if pd.isna(texto):
-        return "Não identificado"
-
-    texto = texto.lower()
-
-    for sistema, palavras in SISTEMA_RULES.items():
-        for p in palavras:
-            if p in texto:
-                return sistema
+                return tipo
 
     return "Não identificado"
 
@@ -125,16 +90,12 @@ def classificar_sistema(texto):
 def processar_dataframe(df):
     df = df.copy()
 
-    # Remove colunas se já existirem (evita erro no Streamlit / Arrow)
-    colunas_padrao = ["Modo de Falha", "Sistema"]
-    df = df.drop(columns=[c for c in colunas_padrao if c in df.columns])
+    # Remove coluna se já existir
+    coluna_padrao = ["Tipo de Defeito"]
+    df = df.drop(columns=[c for c in coluna_padrao if c in df.columns])
 
-    df["Modo de Falha"] = df["Detalhes Adicionais de Falha"].apply(
-        classificar_modo_falha
-    )
-
-    df["Sistema"] = df["Detalhes Adicionais de Falha"].apply(
-        classificar_sistema
+    df["Tipo de Defeito"] = df["Detalhes Adicionais de Falha"].apply(
+        classificar_tipo_defeito
     )
 
     return df
@@ -151,9 +112,9 @@ def gerar_excel_download(df):
 # Interface Streamlit
 # =============================
 
-st.title("Classificação Corporativa de Falhas – Warranty / Qualidade")
+st.title("Classificação Corporativa de Defeitos – Warranty / Qualidade")
 st.markdown(
-    "Classificação automática de **Modo de Falha** e **Sistema** "
+    "Classificação automática de **Tipo de Defeito** "
     "a partir de texto livre (padrão corporativo)."
 )
 
@@ -182,7 +143,7 @@ if uploaded_file:
 
     df_output = processar_dataframe(df_input)
 
-    st.subheader("Resultado – Classificação Corporativa")
+    st.subheader("Resultado – Classificação por Tipo de Defeito")
     st.dataframe(df_output.head(20), use_container_width=True)
 
     excel_buffer = gerar_excel_download(df_output)
@@ -190,6 +151,6 @@ if uploaded_file:
     st.download_button(
         label="Download do Excel classificado",
         data=excel_buffer,
-        file_name="outputdatawarranty.xlsx",
+        file_name="output_tipo_defeito_warranty.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
