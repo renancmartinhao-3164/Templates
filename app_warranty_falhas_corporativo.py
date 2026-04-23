@@ -162,4 +162,3 @@ if uploaded_file:
         file_name="output_tipo_defeito_warranty.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-``
