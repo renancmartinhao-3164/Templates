@@ -63,6 +63,21 @@ TIPO_DEFEITO_RULES = [
         r"\bnao funciona\b",
         r"\bsem funcionamento\b",
         r"\bparado\b",
+        r"\bnao estava marcando\b",
+        r"\bnao marca\b",
+        r"\bnao marcando\b",
+        r"\bnao estava funcionando\b",
+        r"\bsem leitura\b",
+        r"\bsem sinal\b",
+        r"\bnao responde\b",
+        r"\bnao aciona\b",
+        r"\bnao aciona\b",
+        r"\bindicador de nivel.*nao estava marcando\b",
+        r"\bindicador de nivel.*nao marca\b",
+        r"\bindicador de nivel.*sem funcionamento\b",
+        r"\bnao estava marcando o nivel\b",
+        r"\bnao marcando o nivel\b",
+        r"\bnao estava marcando o nivel do tanque\b",
     ]),
 
     ("Defeito Elétrico", [
@@ -254,6 +269,7 @@ def processar_dataframe(df):
             })
             return None
 
+    # Processa TODAS as linhas
     df["Tipo de Defeito"] = df.apply(aplicar_classificacao, axis=1)
 
     if erros:
